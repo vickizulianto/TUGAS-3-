@@ -1,0 +1,59 @@
+body {
+  background-color: #ccc;
+}
+.judul {
+  text-align: center;
+  margin-top: 100px;
+}
+.konten1 {
+  display: flex;
+  justify-content: center;
+}
+.card {
+  background-color: rgb(168, 217, 231);
+  width: 180px;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+.card:hover {
+  transform: scale(1.05);
+}
+.card img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+}
+.card h4 {
+  padding: 10px;
+  margin: 0;
+  color: #003366;
+}
+.navigasi {
+  padding: 10px;
+  margin: 0;
+  border-bottom: solid;
+}
+.nav-btn {
+  padding: 9px;
+  margin: 10px;
+  cursor: pointer;
+  border-radius: 10px;
+  user-select: none;
+}
+.nav-logo {
+  cursor: pointer;
+  border-radius: 5px;
+  user-select: none;
+}
+.nav-btn:hover {
+  background-color: aqua;
+}
+.nav-logo:hover {
+  background-color: rgba(152, 164, 160, 0.482);
+}

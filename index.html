@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Halaman SITTA</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.7.16"></script>
+    <link rel="stylesheet" href="/css/index.css" />
+    <link rel="stylesheet" href="/css/stock.css" />
+    <link rel="stylesheet" href="/css/tracking.css" />
+  </head>
+  <body>
+    <div id="app">
+      <nav class="navigasi">
+        <img
+          class="nav-logo"
+          @click="tab='tampilkan-home'"
+          src="https://elearning.ut.ac.id/pluginfile.php/1/theme_mb2iq/logo/1761240646/logout.png"
+        />
+        <a class="nav-btn" @click="tab='tampilkan-stok'">Stok Bahan Ajar</a>
+        <a class="nav-btn" @click="tab='tampilkan-tracking'"
+          >Tracking Delivery Order</a
+        >
+      </nav>
+
+      <!--konten Dashboard-->
+      <section v-show="tab==='tampilkan-home'">
+        <halaman-dashboard @ganti-tab="gantiTab"></halaman-dashboard>
+      </section>
+
+      <!--Konten Stok-->
+      <section v-if="tab==='tampilkan-stok'">
+        <stok-filter></stok-filter>
+        <stok-tabel></stok-tabel>
+        <stok-modal></stok-modal>
+        <div class="tambah-stok-container">
+          <button
+            @click="$root.$emit('buka-form-tambah-stok')"
+            class="btn-cari"
+          >
+            ➕ Tambah Bahan Ajar Baru
+          </button>
+          <stok-tambah-form></stok-tambah-form>
+        </div>
+      </section>
+
+      <!--Konten Tracking-->
+      <section v-if="tab==='tampilkan-tracking'">
+        <tracking-opsi></tracking-opsi>
+        <tracking-cari></tracking-cari>
+        <tracking-tambah></tracking-tambah>
+      </section>
+    </div>
+
+    <!--Template-->
+
+    <!--Dashboard-->
+    <template id="home">
+      <div class="judul">
+        <h2>Sistem Informasi Penjualan dan Logistik Bahan Ajar (SITTA)</h2>
+
+        <div class="konten1" id="link">
+          <div @click="gantiKeStok" class="card">
+            <img
+              src="https://cdn-icons-png.flaticon.com/128/13809/13809732.png"
+            />
+            <br /><span>Stok Bahan Ajar</span>
+          </div>
+          <div @click="gantiKeTracking" class="card">
+            <img
+              src="https://cdn-icons-png.flaticon.com/128/2203/2203124.png"
+            />
+            <br /><span>Tracking DO</span>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!--Stok filter-->
+    <template id="stok-filter">
+      <div class="FilterTabel">
+        <ul class="filter">
+          <li>
+            <select v-model="upbjjTerpilih" class="selek">
+              <option value="">Semua UT Daerah</option>
+              <option v-for="upbjj in $root.dataApp.upbjjList" :value="upbjj">
+                {{ upbjj }}
+              </option>
+            </select>
+          </li>
+          <li>
+            <select
+              v-model="kategoriTerpilih"
+              class="selek"
+              :disabled="!upbjjTerpilih"
+            >
+              <option value="">Semua Kategori</option>
+              <option v-for="kat in $root.dataApp.kategoriList" :value="kat">
+                {{ kat }}
+              </option>
+            </select>
+          </li>
+          <li>
+            <select v-model="urutBerdasarkan" class="selek">
+              <option value="">Urutkan (Default)</option>
+              <option value="judul">Judul</option>
+              <option value="qty">Stok</option>
+              <option value="harga">Harga</option>
+            </select>
+          </li>
+        </ul>
+
+        <label class="checkbox-container">
+          <input type="checkbox" v-model="filterReorder" />
+          <span>Hanya Tampilkan Reorder (Stok < Safety)</span>
+        </label>
+
+        <button @click="reset" class="btn-cari">Reset Filter</button>
+      </div>
+    </template>
+
+    <!--Stok tabel-->
+    <template id="stok-tabel">
+      <div class="tabel">
+        <div
+          v-if="tooltipData.visible && tooltipData.content"
+          class="tooltip-catatan"
+          v-html="tooltipData.content"
+        ></div>
+        <table>
+          <thead>
+            <tr>
+              <th>Kode/Judul</th>
+              <th>UT Daerah</th>
+              <th>Kategori</th>
+              <th>Lokasi Rak</th>
+              <th>Harga</th>
+              <th>Safety Stock</th>
+              <th>Stok (Qty)</th>
+              <th>Status</th>
+              <th>Catatan</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="stok in stokTersaring" :key="stok.kode">
+              <td>{{ stok.kode }} / {{ stok.judul }}</td>
+              <td>{{ stok.upbjj }}</td>
+              <td>{{ stok.kategori }}</td>
+              <td>{{stok.lokasiRak}}</td>
+              <td>{{ formatRupiah(stok.harga) }}</td>
+              <td>{{ stok.safety }}</td>
+              <td>{{ stok.qty }}</td>
+              <td
+                :class="statusClass(stok)"
+                @mouseover="showTooltip(stok, $event)"
+                @mouseleave="hideTooltip"
+              >
+                {{ statusText(stok) }}
+              </td>
+              <td v-html="stok.catatanHTML"></td>
+              <td>
+                <button
+                  @click="$root.$emit('buka-modal', stok, 'tambah')"
+                  class="btn-small btn-tambah"
+                >
+                  +
+                </button>
+                <button
+                  @click="$root.$emit('buka-modal', stok, 'kurang')"
+                  class="btn-small btn-kurang"
+                  :disabled="stok.qty === 0"
+                >
+                  -
+                </button>
+                <button @click="hapusStok(stok)" class="btn-cari">Hapus</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <!--Stok modal-->
+    <template id="stok-modal">
+      <div v-if="modalTerbuka" class="modal-overlay" @click.self="tutupModal">
+        <div class="modal-content">
+          <h3>{{ modeUbah === 'tambah' ? 'Tambah Stok' : 'Kurangi Stok' }}</h3>
+          <p>
+            **{{ stokDipilih.judul }}** ({{ stokDipilih.kode }}) - Stok saat
+            ini:
+            <b>{{ stokDipilih.qty }}</b>
+          </p>
+
+          <label>Jumlah yang diubah:</label>
+          <input
+            type="number"
+            v-model.number="jumlahUbah"
+            min="1"
+            @keyup.enter="konfirmasiUbah"
+          />
+
+          <p v-if="jumlahError" class="error-msg">{{ jumlahError }}</p>
+          <br />
+          <button
+            @click="konfirmasiUbah"
+            :disabled="jumlahError || jumlahUbah <= 0"
+            :class="{'btn-primary': true, 'btn-disabled': jumlahError || jumlahUbah <= 0}"
+          >
+            Konfirmasi {{ modeUbah === 'tambah' ? 'Penambahan' : 'Pengurangan'
+            }}
+          </button>
+          <button @click="tutupModal" class="btn-secondary">Batal</button>
+        </div>
+      </div>
+    </template>
+
+    <!--Stok tambah BA-->
+    <template id="stok-tambah-form">
+      <div v-if="formTerbuka" @click.self="tutupForm">
+        <div class="modal-content">
+          <h3>Tambah Bahan Ajar Baru</h3>
+          <form @submit.prevent="tambahStok">
+            <label>Kode Bahan Ajar (Unik):</label>
+            <input type="text" v-model="stokBaru.kode" required />
+
+            <label>Judul Bahan Ajar:</label>
+            <input type="text" v-model="stokBaru.judul" required />
+
+            <label>UT Daerah (Lokasi Stok):</label>
+            <select v-model="stokBaru.upbjj" required class="selek">
+              <option v-for="upbjj in $root.dataApp.upbjjList" :value="upbjj">
+                {{ upbjj }}
+              </option>
+            </select>
+
+            <label>Kategori:</label>
+            <select v-model="stokBaru.kategori" required class="selek">
+              <option v-for="kat in $root.dataApp.kategoriList" :value="kat">
+                {{ kat }}
+              </option>
+            </select>
+
+            <label>Lokasi Rak:</label>
+            <input type="text" v-model="stokBaru.lokasiRak" />
+
+            <label>Harga Jual (Rp):</label>
+            <input
+              type="number"
+              v-model.number="stokBaru.harga"
+              min="0"
+              required
+            />
+
+            <label>Safety Stock:</label>
+            <input
+              type="number"
+              v-model.number="stokBaru.safety"
+              min="0"
+              required
+            />
+
+            <label>Jumlah Stok Awal (Qty):</label>
+            <input
+              type="number"
+              v-model.number="stokBaru.qty"
+              min="0"
+              required
+            />
+
+            <label>Catatan (HTML diterima):</label>
+            <textarea
+              v-model="stokBaru.catatanHTML"
+              @keyup.ctrl.enter="tambahStok"
+            ></textarea>
+            <br />
+            <button type="submit" class="btn-cari">Simpan Stok Baru</button>
+            <button type="button" @click="tutupForm" class="btn-cari">
+              Batal
+            </button>
+          </form>
+        </div>
+      </div>
+    </template>
+
+    <!--tracking opsi-->
+    <template id="tracking-opsi">
+      <div style="text-align: center; margin-bottom: 20px">
+        <button class="btn-cari" @click="toggleSearch">
+          {{ showSearch ? "Tutup Pencarian" : "🔍 Cari DO" }}
+        </button>
+        <button class="btn-cari" @click="toggleFormDO">
+          {{ showFormDO ? "Tutup Form DO" : "➕ Tambah DO" }}
+        </button>
+      </div>
+    </template>
+
+    <!--tracking cari-->
+    <template id="tracking-cari">
+      <div v-if="showSearch" class="hasil">
+        <h3>Pencarian Delivery Order (DO)</h3>
+        <div class="input-group">
+          <input
+            type="text"
+            v-model="keyword"
+            @keyup.enter="cariDO"
+            placeholder="Masukkan Kode DO"
+          />
+          <button @click="cariDO" class="btn-cari">Cari</button>
+          <button @click="resetCari" class="btn-cari">Reset</button>
+        </div>
+
+        <div v-if="showResults" class="hasil">
+          <h4>Hasil Ditemukan ({{ Object.keys(filteredDO).length }})</h4>
+          <div
+            v-for="(item, kodeDO) in filteredDO"
+            :key="kodeDO"
+            class="do-card"
+          >
+            <h5>DO: {{ kodeDO }} ({{ item.nim }})</h5>
+            <p>Nama: <b>{{ item.nama }}</b></p>
+            <p>
+              Status:
+              <span
+                :class="{'status-selesai': item.status === 'Selesai', 'status-kirim': item.status !== 'Selesai'}"
+              >
+                {{ item.status }}
+              </span>
+            </p>
+            <p>Ekspedisi: {{ ekspedisiName(item.ekspedisi) }}</p>
+            <p>Tanggal Kirim: {{ formatTanggal(item.tanggalKirim) }}</p>
+            <p>Total: {{ formatRupiah(item.total) }}</p>
+
+            <div class="timeline">
+              <h6>Riwayat Perjalanan:</h6>
+              <div
+                v-for="(log, index) in item.perjalanan.slice().reverse()"
+                :key="index"
+                class="timeline-item"
+              >
+                <small>{{ formatWaktu(log.waktu) }}</small>
+                <p>{{ log.keterangan }}</p>
+              </div>
+            </div>
+
+            <div class="tambah-progress">
+              <input
+                type="text"
+                v-model="keteranganBaru[kodeDO]"
+                placeholder="Keterangan baru (cth: Sudah Diterima / Tiba di kota tujuan)"
+              />
+              <button @click="tambahProgress(kodeDO)" class="btn-cari">
+                Tambah Progress
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="showNotFound" class="modal-overlay" @click.self="closeModal">
+          <div class="modal-content">
+            <img
+              src="https://cdn-icons-png.flaticon.com/128/6711/6711656.png"
+              width="60"
+            /><br />
+            <b>Nomor tidak ditemukan!</b><br />
+            <button class="oke-modal" @click="closeModal">Coba Lagi</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!--tracking tambah-->
+    <template id="tracking-tambah">
+      <div v-if="showFormDO" class="hasil">
+        <h3>Form Tambah Delivery Order Baru</h3>
+        <form @submit.prevent="tambahDO">
+          <label>Kode DO Berikutnya:</label>
+          <input type="text" :value="nextDONumber" readonly class="readonly" />
+
+          <label>NIM Mahasiswa:</label>
+          <input type="text" v-model="nimBaru" required />
+
+          <label>Nama Mahasiswa:</label>
+          <input type="text" v-model="namaBaru" required />
+
+          <label>Ekspedisi:</label>
+          <select v-model="ekspedisiBaru" required class="selek">
+            <option value="">-- Pilih Ekspedisi --</option>
+            <option
+              v-for="exp in $root.dataApp.pengirimanList"
+              :value="exp.kode"
+            >
+              {{ exp.nama }}
+            </option>
+          </select>
+
+          <label>Paket:</label>
+          <select v-model="paketKodeBaru" required class="selek">
+            <option value="">-- Pilih Paket --</option>
+            <option v-for="pk in $root.dataApp.paket" :value="pk.kode">
+              {{ pk.kode }} - {{ pk.nama }}
+            </option>
+          </select>
+
+          <div v-if="paketDipilih">
+            <p><b>Isi Paket:</b></p>
+            <ul>
+              <li v-for="item in paketDipilih.isi">{{ item }}</li>
+            </ul>
+            <p><b>Harga:</b> {{ formatRupiah(paketDipilih.harga) }}</p>
+          </div>
+          <div v-else class="error-msg">
+            Pilih paket untuk melihat detail harga.
+          </div>
+
+          <label>Tanggal Kirim:</label>
+          <input
+            type="date"
+            v-model="tanggalKirimBaru"
+            class="selek"
+            required
+          />
+
+          <label>Total Harga:</label>
+          <input
+            type="text"
+            :value="paketDipilih ? formatRupiah(paketDipilih.harga) : 'Pilih Paket'"
+            readonly
+          />
+
+          <button type="submit" class="btn-cari">Simpan DO Baru</button>
+        </form>
+      </div>
+    </template>
+
+    <script type="module" src="/js/apps.js"></script>
+  </body>
+</html>
